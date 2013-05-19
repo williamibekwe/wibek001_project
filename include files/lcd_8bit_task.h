@@ -22,6 +22,7 @@ unsigned char LCD_rdy_g = 0;
 unsigned char LCD_go_g = 0;
 // Filled by user synchSM, 16 chars plus end-of-string char
 unsigned char LCD_string_g[32];
+unsigned char LCD_string_g2[32];
 // Determine if the LCD will write a char (0) or a string (1)
 unsigned char LCD_write_str = 1;
 // Position to write a single character to the LCD Position (0~15)

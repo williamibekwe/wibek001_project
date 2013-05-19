@@ -14,6 +14,11 @@
 #include <lcd_8bit_task.h>
 #include <equation.h>
 
+
+//*************HAND SHAKING WITH ANSWER AND SCROLLING EQUATIONS
+unsigned char sendAnswer = 0; 
+unsigned char checkAnswer = 0; 
+
 void init_PWM() {
 	TCCR2 = (1 << WGM21) | (1 << COM20) | (1 << CS22);
 }
@@ -68,11 +73,13 @@ void speakerMelody()
 	}
 	
 }
-
+unsigned char pvalue = 0;
+unsigned char inputTemp;
 enum LCDScroll { CLEAR, SHIFT, PRINT} lcdscroll;
 E equations; 
 unsigned char scrollCount = 0; 
 unsigned char counter = 0; 
+unsigned char answer = 4; 
 void scroller()
 {
 	
@@ -106,21 +113,21 @@ void scroller()
 			if (scrollCount > 10)
 			{
 				LCD_char_pos = 0;
-				
-				if( counter > 16 )
+				if( LCD_string_g[0] == '=' || inputTemp == 0 )
 				{
 					counter = 0; 
 					unsigned char left = rand() % 10;
 					unsigned char right = rand() % 10;
+					answer = left + right; 
 					char  temp[32];
 					strcpy(LCD_string_g, "               ");
 					strcat( LCD_string_g, convertFromChar2String(left));
 					strcat( LCD_string_g, " + ");
 					strcat( LCD_string_g, convertFromChar2String(right));
-					strcat( LCD_string_g, "  =                               ");
+					strcat( LCD_string_g, "  =                                                  ");
 					//strcpy( LCD_string_g, temp) ; 
 				}					
-				strcpy( LCD_string_g,  LCD_string_g + 1 );
+				strcpy( LCD_string_g,  strcat( LCD_string_g, "                                                  ") + 1 );
 				counter++; 
 				scrollCount = 0; 
 			}	 
@@ -135,12 +142,11 @@ void scroller()
 }
 
 enum States { UNHOLD, CAPTURE, HOLD } state; 
-unsigned char tempD = 0; 
-unsigned char tempA = 0; 
-unsigned char pvalue = 0;
 unsigned char tp = 0; 
-unsigned char t[32] = {"                                "};
+unsigned char t[10] = {"                                "};
 
+unsigned char* ansArray;
+unsigned char answerCounter = 0;
 void keypadtest() 
 {
 	pvalue = GetKeypadKey(); 
@@ -184,9 +190,17 @@ void keypadtest()
 		case UNHOLD: 
 			break; 
 		case CAPTURE:
-			LCD_go_g = 0;
-			t[tp] = pvalue;
-			strcpy( LCD_string_g, t);
+			if( pvalue == '*' )
+			{
+				t[answerCounter++] = '\0';
+				answerCounter = 0;
+				inputTemp = answer - atoi(t); 
+			}	
+			else
+			{
+				t[answerCounter++] = pvalue;
+			}			
+			//strcpy( LCD_string_g, t);
 			break; 
 		case HOLD: 
 			LCD_go_g = 1; 
@@ -196,11 +210,64 @@ void keypadtest()
 	}
 }
 
+enum Ans { TYPEIN, CONVERT } ans;
+unsigned char inputTemp; 
+unsigned char* ansArray;  
+
+void equationAnswer() 
+{
+	inputTemp =  GetKeypadKey();  
+	switch( ans ) 
+	{
+		case -1: 
+			//strcpy( ansArray, "");
+			break; 
+		case TYPEIN: 
+			if( answerCounter > 9  ||  inputTemp == '\0' )
+			{
+				ans = CONVERT;
+			}
+			else 
+			{
+				ans = TYPEIN;
+			}
+			break; 
+		case CONVERT: 
+			ans = TYPEIN; 
+			break; 
+		default: 
+			ans = -1; 
+			break; 
+	}
+	switch( ans )
+	{
+		case -1:
+			break;
+		case TYPEIN:
+			if ( inputTemp != '\0' && inputTemp != '*' && inputTemp != '#' )
+			{
+				answerCounter++;
+				strcat(ansArray, inputTemp );
+			}			
+			break;
+		case CONVERT:
+			answer = 0; //answer - atoi( ansArray ); 
+			strcpy(ansArray, ""); 
+			sendAnswer = 1; 
+			counter = 0; 
+			break;
+		default:
+			break;
+	}
+}
+
+
 int main(void)
 {
 	init_PWM();
+	//while( GetKeypadKey() == '\0' ); 
 	//equations = load();
-	//strcpy( LCD_string_g,  "               2 + 2 =                                   " );
+	strcpy( LCD_string_g,  "               2 + 2 =                                           " );
 	//strcpy( LCD_string_g, equations[1].e ) ; 
 	//LCD_write_str = 0;
 	DDRB = 0xFF; // Set port B to output
@@ -211,13 +278,13 @@ int main(void)
 	// Period for the tasks
 	unsigned long int SMTick1_calc = 100;
 	unsigned long int SMTick2_calc = 1;
-	unsigned long int SMTick3_calc = 20;
-
+	unsigned long int SMTick3_calc = 5;
+	unsigned long int SMTick4_calc = 1;
 	//Calculating GCD
 	unsigned long int tmpGCD = 1;
 	tmpGCD = findGCD(SMTick1_calc, SMTick2_calc);
 	tmpGCD = findGCD(tmpGCD, SMTick3_calc);
-
+	tmpGCD = findGCD(tmpGCD, SMTick4_calc);
 	//Greatest common divisor for all tasks or smallest time unit for tasks.
 	unsigned long int GCD = tmpGCD;
 
@@ -225,10 +292,11 @@ int main(void)
 	unsigned long int SMTick1_period = SMTick1_calc/GCD;
 	unsigned long int SMTick2_period = SMTick2_calc/GCD;
 	unsigned long int SMTick3_period = SMTick3_calc/GCD;
+	unsigned long int SMTick4_period = SMTick3_calc/GCD;
 
 	//Declare an array of tasks
-	static task task1, task2, task3;
-	task *tasks[] = { &task1, &task2, &task3 };
+	static task task1, task2, task3, task4;
+	task *tasks[] = { &task1, &task2, &task3, &task4 };
 	const unsigned short numTasks = sizeof(tasks)/sizeof(task*);
 
 	// Task 1
@@ -247,7 +315,13 @@ int main(void)
 	task3.state = -1;//Task initial state.
 	task3.period = SMTick3_period;//Task Period.
 	task3.elapsedTime = SMTick3_period; // Task current elasped time.
-	task3.TickFct = &scroller; // Function pointer for the tick.
+	task3.TickFct = &keypadtest; // Function pointer for the tick.
+
+	// Task 4
+	task4.state = -1;//Task initial state.
+	task4.period = SMTick4_period;//Task Period.
+	task4.elapsedTime = SMTick4_period; // Task current elasped time.
+	task4.TickFct = &scroller; // Function pointer for the tick.
 
 	// Set the timer and turn it on
 	TimerSet(GCD);
