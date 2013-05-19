@@ -44,7 +44,7 @@ void LCD_WriteDataEnd() {
 	LCD_CTRL = SetBit(LCD_CTRL,LCD_E, 0);
 }
 void LCD_Cursor(unsigned char column) {
-	if ( column < 16 ) {
+	if ( column < 17 ) {
 		LCD_WriteCmdStart(0x80+column);
 	}
 	else {

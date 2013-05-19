@@ -11,28 +11,35 @@
 
 typedef struct Equation
 {
-	unsigned char left;
-	unsigned char right;
-	unsigned char answer; 
-	unsigned char* e; 
+	//unsigned char e[100][32];
+	//unsigned char* e; 
 } E;
 
 
-E*  load()
+E  load()
 {
-	srand(internalTimer);
-	E temp[100];
-	for( int i = 0; i < 100; i++ ) 
-	{
-		temp[i].left = rand()  %  10; 
-		temp[i].right = rand() %  10;
-		temp[i].answer = temp[i].right + temp[i].left; 
-		strcat( temp[i].e, "              " ); 
-		strcpy( temp[i].e, temp[i].left ); 
-		strcat( temp[i].e, " + " ); 
-		strcat( temp[i].e, temp[i].right ); 
-		strcat( temp[i].e, " =                     " ); 
-	}
+}
+
+unsigned char* convertFromChar2String( unsigned char  num)
+{
+if( num == 0 ) { return "0"; }
+	if( num == 1 ) { return "1"; }
+	if( num == 2 ) { return "2"; }
+	if( num == 3 ) { return "3"; }	
+	if( num == 4 ) { return "4"; }
+	if( num == 5 ) { return "5"; }
+	if( num == 6 ) { return "6"; }
+	if( num == 7 ) { return "7"; }
+	if( num == 8 ) { return "8"; }
+	if( num == 9 ) { return "9"; }
+	if( num == 'A' ) { return "10"; }
+	if( num == 'B' ) { return "11"; }
+	if( num == 'C' ) { return "12"; }
+	if( num == 'D' ) { return "13"; }
+	if( num == '*' ) { return "14"; }
+	if( num == '#' ) { return "15"; }
+	
+	return '\0';
 }
 
 #endif //EQUATION_H

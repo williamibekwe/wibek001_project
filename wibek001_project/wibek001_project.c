@@ -70,13 +70,15 @@ void speakerMelody()
 }
 
 enum LCDScroll { CLEAR, SHIFT, PRINT} lcdscroll;
+E equations; 
 unsigned char scrollCount = 0; 
+unsigned char counter = 0; 
 void scroller()
 {
 	
 	switch(lcdscroll)
 	{
-		case -1: 
+		case -1:
 			lcdscroll = CLEAR; 
 			break;
 		case CLEAR: 
@@ -89,7 +91,7 @@ void scroller()
 			lcdscroll = CLEAR; 
 			break; 
 		default: 
-			lcdscroll = CLEAR; 
+			lcdscroll = -1; 
 			break; 
 	}
 	
@@ -104,7 +106,22 @@ void scroller()
 			if (scrollCount > 10)
 			{
 				LCD_char_pos = 0;
+				
+				if( counter > 16 )
+				{
+					counter = 0; 
+					unsigned char left = rand() % 10;
+					unsigned char right = rand() % 10;
+					char  temp[32];
+					strcpy(LCD_string_g, "               ");
+					strcat( LCD_string_g, convertFromChar2String(left));
+					strcat( LCD_string_g, " + ");
+					strcat( LCD_string_g, convertFromChar2String(right));
+					strcat( LCD_string_g, "  =                               ");
+					//strcpy( LCD_string_g, temp) ; 
+				}					
 				strcpy( LCD_string_g,  LCD_string_g + 1 );
+				counter++; 
 				scrollCount = 0; 
 			}	 
 			scrollCount++;
@@ -182,8 +199,8 @@ void keypadtest()
 int main(void)
 {
 	init_PWM();
-	//E* equations = load();
-	
+	//equations = load();
+	//strcpy( LCD_string_g,  "               2 + 2 =                                   " );
 	//strcpy( LCD_string_g, equations[1].e ) ; 
 	//LCD_write_str = 0;
 	DDRB = 0xFF; // Set port B to output
@@ -194,7 +211,7 @@ int main(void)
 	// Period for the tasks
 	unsigned long int SMTick1_calc = 100;
 	unsigned long int SMTick2_calc = 1;
-	unsigned long int SMTick3_calc = 100;
+	unsigned long int SMTick3_calc = 20;
 
 	//Calculating GCD
 	unsigned long int tmpGCD = 1;
