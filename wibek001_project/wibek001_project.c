@@ -80,6 +80,8 @@ E equations;
 unsigned char scrollCount = 0; 
 unsigned char counter = 0; 
 unsigned char answer = 4; 
+unsigned char correctAnswer = 0;  
+unsigned char tmpA = 0; 
 void scroller()
 {
 	
@@ -115,7 +117,28 @@ void scroller()
 				LCD_char_pos = 0;
 				if( LCD_string_g[0] == '=' || inputTemp == 0 )
 				{
-					counter = 0; 
+					
+					correctAnswer++; 
+					if( correctAnswer > 2 )
+					{
+						tmpA = SetBit( tmpA, 0, 1 ); 
+					} 
+					if( correctAnswer > 4 )
+					{
+						tmpA = SetBit( tmpA, 1, 1 );
+					}
+					if( correctAnswer > 6 )
+					{
+						tmpA = SetBit( tmpA, 2, 1 );
+					}
+					if( correctAnswer > 8 )
+					{
+						tmpA = SetBit( tmpA, 3, 1 );
+					}
+					if ( correctAnswer == 0 ) 
+					{
+						tmpA = 0; 	
+					}
 					unsigned char left = rand() % 10;
 					unsigned char right = rand() % 10;
 					answer = left + right; 
@@ -139,6 +162,7 @@ void scroller()
 		default:
 			break;
 	}
+	PORTA = tmpA; 
 }
 
 enum States { UNHOLD, CAPTURE, HOLD } state; 
@@ -260,6 +284,55 @@ void equationAnswer()
 			break;
 	}
 }
+enum powerUpClear { pcUP, pcDOWN} pc;
+unsigned char tmpA2 = 0; 
+void powerUP() 
+{
+	tmpA2 = PINA; 
+	switch( pc ) 
+	{
+		case -1: 
+			break; 
+		case pcUP: 
+			if( GetBit( ~tmpA2, 4 ) )
+			{
+				correctAnswer = 0; 
+				pc = pcDOWN;  
+			} 
+			else
+			{
+				pc = pcUP; 
+			}
+			break; 
+		case pcDOWN:
+			if( !GetBit( ~tmpA2, 4 ) )
+			{
+				pc = pcUP;
+			}
+			else
+			{
+				pc = pcDOWN;
+			}
+			break;  
+		default: 
+			break; 
+	}
+	
+	switch( pc )
+	{
+		case -1:
+			break;
+		case pcUP:
+			answerCounter = 0; 
+			break;
+		case pcDOWN:
+			break;
+		default:
+			break;
+	}
+	
+	
+}
 
 
 int main(void)
@@ -272,19 +345,21 @@ int main(void)
 	//LCD_write_str = 0;
 	DDRB = 0xFF; // Set port B to output
 	DDRC = 0xFF; // Set port D to output
-	DDRA = 0xFF; PORTA = 0x00;
+	DDRA = 0xF7; PORTA = 0x08;
 	DDRD = 0xF0; PORTD = 0x0F;
 
 	// Period for the tasks
 	unsigned long int SMTick1_calc = 100;
 	unsigned long int SMTick2_calc = 1;
 	unsigned long int SMTick3_calc = 5;
-	unsigned long int SMTick4_calc = 1;
+	unsigned long int SMTick4_calc = 20;
+	unsigned long int SMTick5_calc = 10;
 	//Calculating GCD
 	unsigned long int tmpGCD = 1;
 	tmpGCD = findGCD(SMTick1_calc, SMTick2_calc);
 	tmpGCD = findGCD(tmpGCD, SMTick3_calc);
 	tmpGCD = findGCD(tmpGCD, SMTick4_calc);
+	tmpGCD = findGCD(tmpGCD, SMTick5_calc);
 	//Greatest common divisor for all tasks or smallest time unit for tasks.
 	unsigned long int GCD = tmpGCD;
 
@@ -292,11 +367,11 @@ int main(void)
 	unsigned long int SMTick1_period = SMTick1_calc/GCD;
 	unsigned long int SMTick2_period = SMTick2_calc/GCD;
 	unsigned long int SMTick3_period = SMTick3_calc/GCD;
-	unsigned long int SMTick4_period = SMTick3_calc/GCD;
-
+	unsigned long int SMTick4_period = SMTick4_calc/GCD;
+	unsigned long int SMTick5_period = SMTick5_calc/GCD;
 	//Declare an array of tasks
-	static task task1, task2, task3, task4;
-	task *tasks[] = { &task1, &task2, &task3, &task4 };
+	static task task1, task2, task3, task4, task5;
+	task *tasks[] = { &task1, &task2, &task3, &task4, &task5 };
 	const unsigned short numTasks = sizeof(tasks)/sizeof(task*);
 
 	// Task 1
@@ -322,6 +397,12 @@ int main(void)
 	task4.period = SMTick4_period;//Task Period.
 	task4.elapsedTime = SMTick4_period; // Task current elasped time.
 	task4.TickFct = &scroller; // Function pointer for the tick.
+	
+	// Task 5
+	task5.state = -1;//Task initial state.
+	task5.period = SMTick5_period;//Task Period.
+	task5.elapsedTime = SMTick5_period; // Task current elasped time.
+	task5.TickFct = &powerUP; // Function pointer for the tick.
 
 	// Set the timer and turn it on
 	TimerSet(GCD);
