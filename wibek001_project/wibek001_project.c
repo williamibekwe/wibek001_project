@@ -14,10 +14,14 @@
 #include <lcd_8bit_task.h>
 #include <equation.h>
 
-
+int finalscore = 0; 
+unsigned char startgame = 0; 
 //*************HAND SHAKING WITH ANSWER AND SCROLLING EQUATIONS
 unsigned char sendAnswer = 0; 
 unsigned char checkAnswer = 0; 
+
+//*************HAND SHAKING WITH ANSWER AND SCROLLING EQUATIONS
+unsigned char youLose = 0; 
 
 void init_PWM() {
 	TCCR2 = (1 << WGM21) | (1 << COM20) | (1 << CS22);
@@ -75,29 +79,49 @@ void speakerMelody()
 }
 unsigned char pvalue = 0;
 unsigned char inputTemp;
-enum LCDScroll { CLEAR, SHIFT, PRINT} lcdscroll;
+enum LCDScroll { CLEAR, SHIFT, PRINT, DEAD} lcdscroll;
 E equations; 
 unsigned char scrollCount = 0; 
 unsigned char counter = 0; 
 unsigned char answer = 4; 
 unsigned char correctAnswer = 0;  
-unsigned char tmpA = 0; 
+unsigned char tmpA = 0x0F; 
+unsigned char lives = 7; 
 void scroller()
 {
-	
 	switch(lcdscroll)
 	{
 		case -1:
 			lcdscroll = CLEAR; 
 			break;
 		case CLEAR: 
-			lcdscroll = SHIFT;
+			if( startgame == 1 )
+			{
+				lcdscroll = SHIFT;
+			}
+			else 
+			{
+				lcdscroll = CLEAR;
+			}
+
 			break; 
-		case SHIFT: 
-			lcdscroll = PRINT;
+		case SHIFT:
+			if( lives == 0 )
+			{
+				lcdscroll = DEAD;
+				youLose = 1; 
+			} 
+			else 
+			{
+				lcdscroll = PRINT;
+			}
+			
 			break; 
 		case PRINT: 
 			lcdscroll = CLEAR; 
+			break; 
+		case DEAD:
+			LCD_go_g = 0; 
 			break; 
 		default: 
 			lcdscroll = -1; 
@@ -115,30 +139,17 @@ void scroller()
 			if (scrollCount > 10)
 			{
 				LCD_char_pos = 0;
+				if( LCD_string_g[0] == '='  )
+				{
+					tmpA--;
+					lives--;
+				}
+				if(inputTemp == 0 )
+				{
+					finalscore += 5; 
+				}
 				if( LCD_string_g[0] == '=' || inputTemp == 0 )
 				{
-					
-					correctAnswer++; 
-					if( correctAnswer > 2 )
-					{
-						tmpA = SetBit( tmpA, 0, 1 ); 
-					} 
-					if( correctAnswer > 4 )
-					{
-						tmpA = SetBit( tmpA, 1, 1 );
-					}
-					if( correctAnswer > 6 )
-					{
-						tmpA = SetBit( tmpA, 2, 1 );
-					}
-					if( correctAnswer > 8 )
-					{
-						tmpA = SetBit( tmpA, 3, 1 );
-					}
-					if ( correctAnswer == 0 ) 
-					{
-						tmpA = 0; 	
-					}
 					unsigned char left = rand() % 10;
 					unsigned char right = rand() % 10;
 					answer = left + right; 
@@ -159,6 +170,8 @@ void scroller()
 		case PRINT:
 			LCD_go_g = 1; 
 			break;
+		case DEAD: 
+			break; 
 		default:
 			break;
 	}
@@ -334,7 +347,105 @@ void powerUP()
 	
 }
 
+enum L {  WINNING, LOSE, SCORE } lose;
+void youLost() 
+{
+	switch(lose)
+	{
+		case -1: 
+			break;
+		case WINNING:
+			if( youLose )
+			{
+				lose = LOSE;
+				LCD_go_g = 1; 
+			}
+			else
+			{
+				lose = WINNING;
+			}
+			break; 
+		case LOSE:
+			lose = SCORE;
+			break; 
+		case SCORE:
+			lose = WINNING;
+			break; 
+		default: 
+			break; 
+	}
+	
+	switch(lose)
+	{
+		case -1:
+			break;
+		case WINNING:
+			break;
+		case LOSE:
+			strcpy(LCD_string_g, "   GAME OVER          ");
+			break;
+		case SCORE:
+			LCD_go_g = 0; 
+			LCD_go_g = 1; 
+			strcpy( LCD_string_g, "YOUR SCORE IS ");
+			unsigned char temper[10]; 
+			itoa(finalscore, temper, 10 );
+			strcat( LCD_string_g, temper );
+			strcat( LCD_string_g, "       " );
+			break;
+		default:
+			break;
+	}
+		
+}
 
+
+enum M { Welcome, Menu, INSTRUCTIONS} menu;
+unsigned char menuKey = 0; 
+void mainMenu()
+{
+	menuKey = GetKeypadKey(); 
+	switch( menu )
+	{
+		case -1: 
+			menu = Welcome;
+			break; 
+		case Welcome:
+			menu = Menu;
+			break;
+		case Menu: 
+			if( menuKey == '2')
+			{
+				state = INSTRUCTIONS;
+			}
+			break; 
+		case INSTRUCTIONS: 
+			break; 
+		default:
+			break; 
+	}
+	switch( menu )
+	{
+		case -1:
+			break;
+		case Welcome:
+			LCD_go_g = 1;
+			strcpy( LCD_string_g, "1) to play 2) for instructions" ); 
+			break;
+		case Menu:
+			if ( menuKey =='1')
+			{
+				srand(internalTimer);
+				startgame = 1; 
+				LCD_go_g = 0; 
+			}
+			break;
+		case INSTRUCTIONS:
+			break;
+		default:
+			break;
+	}
+}
 int main(void)
 {
 	init_PWM();
@@ -352,14 +463,18 @@ int main(void)
 	unsigned long int SMTick1_calc = 100;
 	unsigned long int SMTick2_calc = 1;
 	unsigned long int SMTick3_calc = 5;
-	unsigned long int SMTick4_calc = 20;
+	unsigned long int SMTick4_calc = 10;
 	unsigned long int SMTick5_calc = 10;
+	unsigned long int SMTick6_calc = 1000;
+	unsigned long int SMTick7_calc = 10;
 	//Calculating GCD
 	unsigned long int tmpGCD = 1;
 	tmpGCD = findGCD(SMTick1_calc, SMTick2_calc);
 	tmpGCD = findGCD(tmpGCD, SMTick3_calc);
 	tmpGCD = findGCD(tmpGCD, SMTick4_calc);
 	tmpGCD = findGCD(tmpGCD, SMTick5_calc);
+	tmpGCD = findGCD(tmpGCD, SMTick6_calc);
+	tmpGCD = findGCD(tmpGCD, SMTick7_calc);
 	//Greatest common divisor for all tasks or smallest time unit for tasks.
 	unsigned long int GCD = tmpGCD;
 
@@ -369,9 +484,11 @@ int main(void)
 	unsigned long int SMTick3_period = SMTick3_calc/GCD;
 	unsigned long int SMTick4_period = SMTick4_calc/GCD;
 	unsigned long int SMTick5_period = SMTick5_calc/GCD;
+	unsigned long int SMTick6_period = SMTick6_calc/GCD;
+	unsigned long int SMTick7_period = SMTick7_calc/GCD;
 	//Declare an array of tasks
-	static task task1, task2, task3, task4, task5;
-	task *tasks[] = { &task1, &task2, &task3, &task4, &task5 };
+	static task task1, task2, task3, task4, task5, task6, task7;
+	task *tasks[] = { &task1, &task2, &task3, &task4, &task5, &task6, &task7 };
 	const unsigned short numTasks = sizeof(tasks)/sizeof(task*);
 
 	// Task 1
@@ -403,7 +520,19 @@ int main(void)
 	task5.period = SMTick5_period;//Task Period.
 	task5.elapsedTime = SMTick5_period; // Task current elasped time.
 	task5.TickFct = &powerUP; // Function pointer for the tick.
-
+	
+	// Task 6
+	task6.state = -1;//Task initial state.
+	task6.period = SMTick6_period;//Task Period.
+	task6.elapsedTime = SMTick6_period; // Task current elasped time.
+	task6.TickFct = &youLost; // Function pointer for the tick.
+	
+	// Task 6
+	task7.state = -1;//Task initial state.
+	task7.period = SMTick7_period;//Task Period.
+	task7.elapsedTime = SMTick7_period; // Task current elasped time.
+	task7.TickFct = &mainMenu; // Function pointer for the tick.
+	
 	// Set the timer and turn it on
 	TimerSet(GCD);
 	TimerOn();
