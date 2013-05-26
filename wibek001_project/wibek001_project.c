@@ -13,7 +13,8 @@
 #include <tone.h>
 #include <lcd_8bit_task.h>
 #include <equation.h>
-
+int randomSeeder = 0; 
+ 
 int finalscore = 0; 
 unsigned char startgame = 0; 
 //*************HAND SHAKING WITH ANSWER AND SCROLLING EQUATIONS
@@ -79,7 +80,7 @@ void speakerMelody()
 }
 unsigned char pvalue = 0;
 unsigned char inputTemp;
-enum LCDScroll { CLEAR, SHIFT, PRINT, DEAD} lcdscroll;
+enum LCDScroll { CLEAR, SHIFT, PRINT, CORRECT, INCORRECT, DEAD} lcdscroll;
 E equations; 
 unsigned char scrollCount = 0; 
 unsigned char counter = 0; 
@@ -87,6 +88,9 @@ unsigned char answer = 4;
 unsigned char correctAnswer = 0;  
 unsigned char tmpA = 0x0F; 
 unsigned char lives = 7; 
+
+unsigned char left = 0;
+unsigned char right = 0;
 void scroller()
 {
 	switch(lcdscroll)
@@ -111,11 +115,26 @@ void scroller()
 				lcdscroll = DEAD;
 				youLose = 1; 
 			} 
+			else if ( LCD_string_g[0] == '=' )
+			{
+				lcdscroll = INCORRECT; 
+			}
+			else if ( inputTemp == 0 ) 
+			{
+				finalscore += 5;
+				lcdscroll = CORRECT; 
+			}
 			else 
 			{
 				lcdscroll = PRINT;
 			}
 			
+			break; 
+		case INCORRECT:
+			lcdscroll = CLEAR; 
+			break; 
+		case CORRECT: 
+			lcdscroll = CLEAR; 
 			break; 
 		case PRINT: 
 			lcdscroll = CLEAR; 
@@ -133,41 +152,43 @@ void scroller()
 		case -1:
 			break;
 		case CLEAR:
+			
 			LCD_go_g = 0; 
 			break;
 		case SHIFT:
 			if (scrollCount > 10)
 			{
-				LCD_char_pos = 0;
-				if( LCD_string_g[0] == '='  )
-				{
-					tmpA--;
-					lives--;
-				}
-				if(inputTemp == 0 )
-				{
-					finalscore += 5; 
-				}
-				if( LCD_string_g[0] == '=' || inputTemp == 0 )
-				{
-					unsigned char left = rand() % 10;
-					unsigned char right = rand() % 10;
-					answer = left + right; 
-					char  temp[32];
-					strcpy(LCD_string_g, "               ");
-					strcat( LCD_string_g, convertFromChar2String(left));
-					strcat( LCD_string_g, " + ");
-					strcat( LCD_string_g, convertFromChar2String(right));
-					strcat( LCD_string_g, "  =                                                  ");
-					//strcpy( LCD_string_g, temp) ; 
-				}					
+				LCD_char_pos = 0;					
 				strcpy( LCD_string_g,  strcat( LCD_string_g, "                                                  ") + 1 );
 				counter++; 
 				scrollCount = 0; 
 			}	 
 			scrollCount++;
 			break;
-		case PRINT:
+		case INCORRECT: 
+			tmpA--;
+			lives--;
+			left = rand() % 10;
+			right = rand() % 10;
+			answer = left + right;
+			strcpy( LCD_string_g, "               " );
+			strcat( LCD_string_g, convertFromChar2String(left));
+			strcat( LCD_string_g, " + ");
+			strcat( LCD_string_g, convertFromChar2String(right));
+			strcat( LCD_string_g, "  =                                                  ");
+			break; 
+		case CORRECT: 
+			finalscore += 5; 
+			left = rand() % 10;
+			right = rand() % 10;
+			answer = left + right;
+			strcpy( LCD_string_g, "               " );
+			strcat( LCD_string_g, convertFromChar2String(left));
+			strcat( LCD_string_g, " + ");
+			strcat( LCD_string_g, convertFromChar2String(right));
+			strcat( LCD_string_g, "  =                                                  ");
+			break; 
+		case PRINT: 
 			LCD_go_g = 1; 
 			break;
 		case DEAD: 
@@ -247,7 +268,7 @@ void keypadtest()
 	}
 }
 
-enum Ans { TYPEIN, CONVERT } ans;
+enum Ans { WAIT,TYPEIN, CONVERT } ans;
 unsigned char inputTemp; 
 unsigned char* ansArray;  
 
@@ -257,10 +278,20 @@ void equationAnswer()
 	switch( ans ) 
 	{
 		case -1: 
-			//strcpy( ansArray, "");
-			break; 
+			ans = WAIT;
+			break;
+		case WAIT: 
+			if(startgame)
+			{
+				ans = TYPEIN;
+			}
+			else
+			{
+				ans = WAIT;
+			}
+			break;  
 		case TYPEIN: 
-			if( answerCounter > 9  ||  inputTemp == '\0' )
+			if( (answerCounter > 9  ||  inputTemp == '\0') )
 			{
 				ans = CONVERT;
 			}
@@ -400,7 +431,7 @@ void youLost()
 }
 
 
-enum M { Welcome, Menu, INSTRUCTIONS} menu;
+enum M { Welcome, Menu, GAME, INSTRUCTIONS} menu;
 unsigned char menuKey = 0; 
 void mainMenu()
 {
@@ -414,11 +445,24 @@ void mainMenu()
 			menu = Menu;
 			break;
 		case Menu: 
-			if( menuKey == '2')
+			if( menuKey == '1')
 			{
-				state = INSTRUCTIONS;
+				srand(randomSeeder);
+				startgame = 1;
+				LCD_go_g = 1;
+				menu = GAME;
 			}
-			break; 
+			else if( menuKey == '2')
+			{
+				menu = INSTRUCTIONS;
+			}
+			else
+			{
+				menu = Menu;
+			}
+			break;
+		case GAME: 
+			break;
 		case INSTRUCTIONS: 
 			break; 
 		default:
@@ -429,19 +473,16 @@ void mainMenu()
 		case -1:
 			break;
 		case Welcome:
-			LCD_go_g = 1;
-			strcpy( LCD_string_g, "1) to play 2) for instructions" ); 
-			break;
+			break; 
 		case Menu:
-			if ( menuKey =='1')
-			{
-				srand(internalTimer);
-				startgame = 1; 
-				LCD_go_g = 0; 
-			}
+			LCD_go_g = 1;
+			strcpy( LCD_string_g, "Welcome! Press 1 to play =" );
 			break;
 		case INSTRUCTIONS:
 			break;
+		case GAME:
+			startgame = 1; 
+			break; 
 		default:
 			break;
 	}
@@ -451,7 +492,7 @@ int main(void)
 	init_PWM();
 	//while( GetKeypadKey() == '\0' ); 
 	//equations = load();
-	strcpy( LCD_string_g,  "               2 + 2 =                                           " );
+	//strcpy( LCD_string_g,  "               2 + 2 =                                           " );
 	//strcpy( LCD_string_g, equations[1].e ) ; 
 	//LCD_write_str = 0;
 	DDRB = 0xFF; // Set port B to output
@@ -540,9 +581,11 @@ int main(void)
 	// Scheduler for-loop iterator
 	while(1)
 	{
+		randomSeeder++;
 		// Scheduler code
 		for ( unsigned short i = 0; i < numTasks; i++ )
 		{
+			randomSeeder++;
 			// Task is ready to tick
 			if ( tasks[i]->elapsedTime == tasks[i]->period )
 			{
@@ -554,6 +597,7 @@ int main(void)
 			tasks[i]->elapsedTime += 1;
 		}
 		while(!TimerFlag);
+		randomSeeder++;
 		TimerFlag = 0;
 	}
 }
