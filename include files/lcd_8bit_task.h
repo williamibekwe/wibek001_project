@@ -146,7 +146,7 @@ int LCDI_SMTick(int state) {
 		if ( LCD_write_str ) {
 			LCD_Cursor(i);
 		} else {
-			LCD_Cursor(LCD_char_pos++ % 32 );
+			LCD_Cursor(LCD_char_pos++ % 64 );
 		}
 		break;
 	case LI_DisplayChar:

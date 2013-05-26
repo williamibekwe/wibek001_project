@@ -86,8 +86,8 @@ unsigned char scrollCount = 0;
 unsigned char counter = 0; 
 unsigned char answer = 4; 
 unsigned char correctAnswer = 0;  
-unsigned char tmpA = 0x0F; 
-unsigned char lives = 7; 
+unsigned char tmpA = 0x04; 
+unsigned char lives = 4; 
 
 unsigned char left = 0;
 unsigned char right = 0;
@@ -115,7 +115,7 @@ void scroller()
 				lcdscroll = DEAD;
 				youLose = 1; 
 			} 
-			else if ( LCD_string_g[0] == '=' )
+			else if ( LCD_string_g[0] == '=' || LCD_string_g[0] == '.' )
 			{
 				lcdscroll = INCORRECT; 
 			}
@@ -445,7 +445,7 @@ void mainMenu()
 			menu = Menu;
 			break;
 		case Menu: 
-			if( menuKey == '1')
+			if( menuKey == '*')
 			{
 				srand(randomSeeder);
 				startgame = 1;
@@ -476,7 +476,7 @@ void mainMenu()
 			break; 
 		case Menu:
 			LCD_go_g = 1;
-			strcpy( LCD_string_g, "Welcome! Press 1 to play =" );
+			strcpy( LCD_string_g, "Welcome! Press *   Ready   Begin.                       " );
 			break;
 		case INSTRUCTIONS:
 			break;
