@@ -27,6 +27,7 @@ unsigned char LCD_string_g2[32];
 unsigned char LCD_write_str = 1;
 // Position to write a single character to the LCD Position (0~15)
 unsigned char LCD_char_pos = 0; 
+unsigned char LCD_char_pos2 = 0; 
 
 void LCD_WriteCmdStart(unsigned char cmd) {
 	LCD_CTRL = SetBit(LCD_CTRL,LCD_RS, 0);
@@ -49,7 +50,7 @@ void LCD_Cursor(unsigned char column) {
 		LCD_WriteCmdStart(0x80+column);
 	}
 	else {
-		LCD_WriteCmdStart(0xB0+column);
+		LCD_WriteCmdStart(0xBF+column);
 	}
 }
 
@@ -146,7 +147,7 @@ int LCDI_SMTick(int state) {
 		if ( LCD_write_str ) {
 			LCD_Cursor(i);
 		} else {
-			LCD_Cursor(LCD_char_pos++ % 64 );
+			LCD_Cursor(LCD_char_pos++ % 32 );
 		}
 		break;
 	case LI_DisplayChar:

@@ -14,16 +14,19 @@
 #include <lcd_8bit_task.h>
 #include <equation.h>
 int randomSeeder = 0; 
- 
+unsigned char powerUPActivation = 0;
 int finalscore = 0; 
 unsigned char startgame = 0; 
 //*************HAND SHAKING WITH ANSWER AND SCROLLING EQUATIONS
 unsigned char sendAnswer = 0; 
 unsigned char checkAnswer = 0; 
 
-//*************HAND SHAKING WITH ANSWER AND SCROLLING EQUATIONS
+//*************HAND SHAKING WITH Scrolling and loosing the game
 unsigned char youLose = 0; 
 
+//*************HAND SHAKING WITH  scrolling and powerup
+unsigned char pUP = 0;  
+unsigned char pDOWN = 0;  
 void init_PWM() {
 	TCCR2 = (1 << WGM21) | (1 << COM20) | (1 << CS22);
 }
@@ -84,6 +87,7 @@ enum LCDScroll { CLEAR, SHIFT, PRINT, CORRECT, INCORRECT, DEAD} lcdscroll;
 E equations; 
 unsigned char scrollCount = 0; 
 unsigned char counter = 0; 
+unsigned char powerUpCounter = 0; 
 unsigned char answer = 4; 
 unsigned char correctAnswer = 0;  
 unsigned char tmpA = 0x04; 
@@ -119,8 +123,10 @@ void scroller()
 			{
 				lcdscroll = INCORRECT; 
 			}
-			else if ( inputTemp == 0 ) 
-			{
+			else if ( inputTemp == 0  || ( powerUPActivation == '#' && GetBit(PORTA, 2) )) 
+			{  
+				pUP = 0; 
+				powerUpCounter++;
 				finalscore += 5;
 				lcdscroll = CORRECT; 
 			}
@@ -128,7 +134,6 @@ void scroller()
 			{
 				lcdscroll = PRINT;
 			}
-			
 			break; 
 		case INCORRECT:
 			lcdscroll = CLEAR; 
@@ -152,7 +157,6 @@ void scroller()
 		case -1:
 			break;
 		case CLEAR:
-			
 			LCD_go_g = 0; 
 			break;
 		case SHIFT:
@@ -166,8 +170,8 @@ void scroller()
 			scrollCount++;
 			break;
 		case INCORRECT: 
-			tmpA--;
 			lives--;
+			tmpA = tmpA & 0xF0 | lives;
 			left = rand() % 10;
 			right = rand() % 10;
 			answer = left + right;
@@ -178,6 +182,11 @@ void scroller()
 			strcat( LCD_string_g, "  =                                                  ");
 			break; 
 		case CORRECT: 
+			if( powerUpCounter == 5 ) 
+			{
+				powerUpCounter = 0; 
+				pUP = 1; 
+			}
 			finalscore += 5; 
 			left = rand() % 10;
 			right = rand() % 10;
@@ -201,8 +210,7 @@ void scroller()
 
 enum States { UNHOLD, CAPTURE, HOLD } state; 
 unsigned char tp = 0; 
-unsigned char t[10] = {"                                "};
-
+unsigned char convertedAnswer[10] = {"                                "};
 unsigned char* ansArray;
 unsigned char answerCounter = 0;
 void keypadtest() 
@@ -248,17 +256,16 @@ void keypadtest()
 		case UNHOLD: 
 			break; 
 		case CAPTURE:
-			if( pvalue == '*' )
+			if( pvalue == '*' || pvalue == '#' )
 			{
-				t[answerCounter++] = '\0';
+				convertedAnswer[answerCounter++] = '\0';
 				answerCounter = 0;
-				inputTemp = answer - atoi(t); 
+				inputTemp = answer - atoi(convertedAnswer); 
 			}	
 			else
 			{
-				t[answerCounter++] = pvalue;
+				convertedAnswer[answerCounter++] = pvalue;
 			}			
-			//strcpy( LCD_string_g, t);
 			break; 
 		case HOLD: 
 			LCD_go_g = 1; 
@@ -328,37 +335,54 @@ void equationAnswer()
 			break;
 	}
 }
-enum powerUpClear { pcUP, pcDOWN} pc;
+enum powerUpClear { pucheck, pu_ON, puHOLD, pu_OFF } pc;
 unsigned char tmpA2 = 0; 
+ 
 void powerUP() 
 {
-	tmpA2 = PINA; 
+	tmpA2 = PINA;
+	powerUPActivation = GetKeypadKey();
 	switch( pc ) 
 	{
 		case -1: 
+			pc = pucheck; 
 			break; 
-		case pcUP: 
-			if( GetBit( ~tmpA2, 4 ) )
+		case pucheck:
+			if( pUP )
 			{
-				correctAnswer = 0; 
-				pc = pcDOWN;  
+				pc = pu_ON; 
 			} 
-			else
+			else 
 			{
-				pc = pcUP; 
+				pc = pucheck; 
 			}
 			break; 
-		case pcDOWN:
-			if( !GetBit( ~tmpA2, 4 ) )
+		case pu_ON:
+			if( powerUPActivation == '#' )
 			{
-				pc = pcUP;
+				pc = HOLD; 
 			}
 			else
 			{
-				pc = pcDOWN;
+				pc = pu_ON; 
 			}
+			break;
+		case puHOLD:
+			if( !GetBit(tmpA2, 3) )
+			{
+				pc = pu_OFF;
+			}
+			else
+			{
+				pc = HOLD;
+			}
+			break;
+		case pu_OFF:
+			inputTemp = 0;
+			pc = pucheck;
 			break;  
 		default: 
+			pc = pucheck;
 			break; 
 	}
 	
@@ -366,16 +390,22 @@ void powerUP()
 	{
 		case -1:
 			break;
-		case pcUP:
-			answerCounter = 0; 
+		case pucheck:
 			break;
-		case pcDOWN:
+		case pu_ON: 
+			tmpA = SetBit(tmpA, 2, 1); 
+			break;
+		case puHOLD:
+			break;
+		case pu_OFF:
+			
+			tmpA = SetBit(tmpA, 2, 0); 
+			pUP = 0; 
 			break;
 		default:
 			break;
-	}
-	
-	
+	}	
+	PORTA = tmpA; 
 }
 
 enum L {  WINNING, LOSE, SCORE } lose;
@@ -476,7 +506,7 @@ void mainMenu()
 			break; 
 		case Menu:
 			LCD_go_g = 1;
-			strcpy( LCD_string_g, "Welcome! Press *   Ready   Begin.                       " );
+			strcpy( LCD_string_g, "Welcome! Press * ....Ready Begin                       " );
 			break;
 		case INSTRUCTIONS:
 			break;
@@ -487,6 +517,7 @@ void mainMenu()
 			break;
 	}
 }
+
 int main(void)
 {
 	init_PWM();
@@ -508,6 +539,7 @@ int main(void)
 	unsigned long int SMTick5_calc = 10;
 	unsigned long int SMTick6_calc = 1000;
 	unsigned long int SMTick7_calc = 10;
+	unsigned long int SMTick8_calc = 10;
 	//Calculating GCD
 	unsigned long int tmpGCD = 1;
 	tmpGCD = findGCD(SMTick1_calc, SMTick2_calc);
@@ -516,6 +548,7 @@ int main(void)
 	tmpGCD = findGCD(tmpGCD, SMTick5_calc);
 	tmpGCD = findGCD(tmpGCD, SMTick6_calc);
 	tmpGCD = findGCD(tmpGCD, SMTick7_calc);
+	tmpGCD = findGCD(tmpGCD, SMTick8_calc);
 	//Greatest common divisor for all tasks or smallest time unit for tasks.
 	unsigned long int GCD = tmpGCD;
 
@@ -527,9 +560,10 @@ int main(void)
 	unsigned long int SMTick5_period = SMTick5_calc/GCD;
 	unsigned long int SMTick6_period = SMTick6_calc/GCD;
 	unsigned long int SMTick7_period = SMTick7_calc/GCD;
+	unsigned long int SMTick8_period = SMTick8_calc/GCD;
 	//Declare an array of tasks
-	static task task1, task2, task3, task4, task5, task6, task7;
-	task *tasks[] = { &task1, &task2, &task3, &task4, &task5, &task6, &task7 };
+	static task task1, task2, task3, task4, task5, task6, task7, task8;
+	task *tasks[] = { &task1, &task2, &task3, &task4, &task5, &task6, &task7, &task8 };
 	const unsigned short numTasks = sizeof(tasks)/sizeof(task*);
 
 	// Task 1
@@ -568,11 +602,17 @@ int main(void)
 	task6.elapsedTime = SMTick6_period; // Task current elasped time.
 	task6.TickFct = &youLost; // Function pointer for the tick.
 	
-	// Task 6
+	// Task 7
 	task7.state = -1;//Task initial state.
 	task7.period = SMTick7_period;//Task Period.
 	task7.elapsedTime = SMTick7_period; // Task current elasped time.
 	task7.TickFct = &mainMenu; // Function pointer for the tick.
+	
+	// Task 8
+	task8.state = -1;//Task initial state.
+	task8.period = SMTick8_period;//Task Period.
+	task8.elapsedTime = SMTick8_period; // Task current elasped time.
+	task8.TickFct = &powerUP; // Function pointer for the tick.
 	
 	// Set the timer and turn it on
 	TimerSet(GCD);
