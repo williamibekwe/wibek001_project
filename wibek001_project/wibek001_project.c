@@ -341,7 +341,7 @@ unsigned char tmpA2 = 0;
 void powerUP() 
 {
 	tmpA2 = PINA;
-	powerUPActivation = GetKeypadKey();
+	powerUPActivation = GetBit(tmpA2, 4);
 	switch( pc ) 
 	{
 		case -1: 
@@ -358,7 +358,7 @@ void powerUP()
 			}
 			break; 
 		case pu_ON:
-			if( powerUPActivation == '#' )
+			if( powerUPActivation  )
 			{
 				pc = HOLD; 
 			}
@@ -368,7 +368,7 @@ void powerUP()
 			}
 			break;
 		case puHOLD:
-			if( !GetBit(tmpA2, 3) )
+			if( !powerUPActivation  )
 			{
 				pc = pu_OFF;
 			}
@@ -528,7 +528,7 @@ int main(void)
 	//LCD_write_str = 0;
 	DDRB = 0xFF; // Set port B to output
 	DDRC = 0xFF; // Set port D to output
-	DDRA = 0xF7; PORTA = 0x08;
+	DDRA = 0xE7; PORTA = 0x18;
 	DDRD = 0xF0; PORTD = 0x0F;
 
 	// Period for the tasks
