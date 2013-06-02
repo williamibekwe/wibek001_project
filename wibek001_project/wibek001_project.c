@@ -92,9 +92,13 @@ unsigned char answer = 4;
 unsigned char correctAnswer = 0;  
 unsigned char tmpA = 0x04; 
 unsigned char lives = 4; 
-
-unsigned char left = 0;
-unsigned char right = 0;
+unsigned char operator = 0; 
+unsigned char difficulty1 = 1; 
+unsigned char difficulty2 = 10; 
+unsigned char number[6];
+unsigned char levelOfDifficulty = 0; 
+unsigned int left = 0;
+unsigned int right = 0;
 void scroller()
 {
 	switch(lcdscroll)
@@ -128,6 +132,16 @@ void scroller()
 				pUP = 0; 
 				powerUpCounter++;
 				finalscore += 5;
+				levelOfDifficulty++; 
+				if( levelOfDifficulty == 7 ) 
+				{
+					difficulty2++;
+				}
+				else if ( levelOfDifficulty == 10 ) 
+				{
+					difficulty1++;
+					levelOfDifficulty = 0; 
+				}
 				lcdscroll = CORRECT; 
 			}
 			else 
@@ -172,13 +186,53 @@ void scroller()
 		case INCORRECT: 
 			lives--;
 			tmpA = tmpA & 0xF0 | lives;
-			left = rand() % 10;
-			right = rand() % 10;
-			answer = left + right;
+			left = rand() % difficulty2;
+			right = rand() % difficulty2;
+			operator = rand() % difficulty1; 
+			if( operator == 0 || operator == 1 ) 
+			{
+				answer = left + right;
+			}
+			else if ( operator == 2 ) 
+			{
+				if ( right > left  ) 
+				{
+					unsigned char temp = left; 
+					left = right;
+					right = temp;  
+				}
+				answer = left - right;
+			}	
+			else if ( operator == 3 ) 
+			{
+				answer = left * right;
+			}
+			else if ( operator  == 4 )
+			{
+				answer = left % right;
+			}
+			
 			strcpy( LCD_string_g, "               " );
-			strcat( LCD_string_g, convertFromChar2String(left));
-			strcat( LCD_string_g, " + ");
-			strcat( LCD_string_g, convertFromChar2String(right));
+			itoa( left, number, 10 ); 
+			strcat( LCD_string_g, number );
+			if ( operator == 1 || operator == 0  ) 
+			{
+				strcat( LCD_string_g, " + ");
+			}
+			else if (operator == 2 ) 
+			{
+				strcat( LCD_string_g, " - ");
+			}
+			else if ( operator == 3 )
+			{
+				strcat( LCD_string_g, " * ");
+			}	
+			else 
+			{
+				strcat( LCD_string_g, " % ");
+			}	
+			itoa( right, number, 10 ); 		
+			strcat( LCD_string_g, number );
 			strcat( LCD_string_g, "  =                                                  ");
 			break; 
 		case CORRECT: 
@@ -188,13 +242,53 @@ void scroller()
 				pUP = 1; 
 			}
 			finalscore += 5; 
-			left = rand() % 10;
-			right = rand() % 10;
-			answer = left + right;
+			left = rand() % difficulty2;
+			right = rand() % difficulty2;
+			operator = rand() % difficulty1;
+			if( operator == 0 || operator == 1 )
+			{
+				answer = left + right;
+			}
+			else if ( operator == 2 )
+			{
+				if ( right > left  )
+				{
+					unsigned char temp = left;
+					left = right;
+					right = temp;
+				}
+				answer = left - right;
+			}
+			else if ( operator == 3 )
+			{
+				answer = left * right;
+			}
+			else if ( operator  == 4 )
+			{
+				answer = left % right;
+			}
+			
 			strcpy( LCD_string_g, "               " );
-			strcat( LCD_string_g, convertFromChar2String(left));
-			strcat( LCD_string_g, " + ");
-			strcat( LCD_string_g, convertFromChar2String(right));
+			itoa( left, number, 10 );
+			strcat( LCD_string_g, number );
+			if ( operator == 1 || operator == 0  )
+			{
+				strcat( LCD_string_g, " + ");
+			}
+			else if (operator == 2 )
+			{
+				strcat( LCD_string_g, " - ");
+			}
+			else if ( operator == 3 )
+			{
+				strcat( LCD_string_g, " * ");
+			}
+			else
+			{
+				strcat( LCD_string_g, " % ");
+			}
+			itoa( right, number, 10 );
+			strcat( LCD_string_g, number );
 			strcat( LCD_string_g, "  =                                                  ");
 			break; 
 		case PRINT: 
@@ -448,7 +542,7 @@ void youLost()
 		case SCORE:
 			LCD_go_g = 0; 
 			LCD_go_g = 1; 
-			strcpy( LCD_string_g, "YOUR SCORE IS ");
+			strcpy( LCD_string_g, "YOUR SCORE: ");
 			unsigned char temper[10]; 
 			itoa(finalscore, temper, 10 );
 			strcat( LCD_string_g, temper );

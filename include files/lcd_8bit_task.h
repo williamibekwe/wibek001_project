@@ -16,6 +16,9 @@
 #define LCD_RS   6 		// LCD Reset pin
 #define LCD_E    7		// LCD Enable pin
 
+// Change the row 
+
+unsigned char position = 0; 
 // Set by LCD interface synchSM, ready to display new string
 unsigned char LCD_rdy_g = 0;
 // Set by user synchSM wishing to display string in LCD_string_g
@@ -47,7 +50,15 @@ void LCD_WriteDataEnd() {
 }
 void LCD_Cursor(unsigned char column) {
 	if ( column < 17 ) {
-		LCD_WriteCmdStart(0x80+column);
+		if( !position ) 
+		{
+			LCD_WriteCmdStart(0x80+column);	
+		}
+		else
+		{
+			LCD_WriteCmdStart(0xC0+column);
+		}
+		
 	}
 	else {
 		LCD_WriteCmdStart(0xBF+column);
