@@ -21,6 +21,8 @@ unsigned char startgame = 0;
 unsigned char sendAnswer = 0; 
 unsigned char checkAnswer = 0; 
 
+unsigned char mel = 0; 
+
 //*************HAND SHAKING WITH Scrolling and loosing the game
 unsigned char youLose = 0; 
 
@@ -39,7 +41,7 @@ void set_PWM(double frequency) {
 	OCR2 = (int)(16000000 / (128 * frequency)) - 1;
 }
 
-enum SpeakMel{  SMON, SMOFF } speakMel;
+enum SpeakMel{  WAITM, SMON, SMOFF } speakMel;
 unsigned char melody[165] = { 4, 0, 0, 4, 0, 0, 6, 6, 7, 7, 4, 0, 0, 4, 0, 0, 3, 3, 2, 2, 4, 0, 0, 4, 0, 0, 6, 6, 7, 7, 4, 0, 0, 4, 0, 0, 3, 3, 2, 2, 4, 0, 0, 4, 0, 0, 6, 6, 7, 7, 4, 0, 0, 4, 0, 0, 3, 3, 2, 2, 4, 0, 0, 4, 0, 0, 6, 6, 7, 7, 4, 0, 0, 4, 0, 0, 3, 3, 2, 2,
 							  6, 4, 1, 1, 1, 1, 1, 1, 1, 1, 0, 6, 4, 9, 9, 9, 9, 9, 9, 9, 9, 0, 6, 4, 8, 8, 8, 8, 8, 8, 8, 8, 0, 10, 8, 0, 0, 0, 0, 0, 0, 0, 0,    
 						     10, 12, 2, 2, 2, 2, 2, 2, 2, 2, 0,  10, 12, 3, 3, 3, 3, 3, 3, 3, 3, 0, 10, 12, 11, 11, 11, 11, 11, 11, 11, 11, 0, 11, 1, 0, 0, 0, 0, 0, 0, 0, 0 }; // };
@@ -50,7 +52,17 @@ void speakerMelody()
 	switch( speakMel )
 	{
 		case -1: 
-			speakMel = SMON;
+			speakMel = WAITM;					
+			break; 
+		case WAITM:
+			if( mel )
+			{
+				speakMel = SMON;
+			}
+			else
+			{
+				speakMel = WAITM;
+			}
 			break; 
 		case SMON:
 			speakMel = SMOFF; 
@@ -59,7 +71,7 @@ void speakerMelody()
 			speakMel = SMON; 
 			break;
 		default: 
-			speakMel = SMON;
+			speakMel = WAITM;
 			break;  
 	}
 	
@@ -91,6 +103,7 @@ unsigned char powerUpCounter = 0;
 unsigned char answer = 4; 
 unsigned char correctAnswer = 0;  
 unsigned char tmpA = 0x04; 
+unsigned char tmpB = 0xFF;
 unsigned char lives = 4; 
 unsigned char operator = 0; 
 unsigned char difficulty1 = 1; 
@@ -115,7 +128,6 @@ void scroller()
 			{
 				lcdscroll = CLEAR;
 			}
-
 			break; 
 		case SHIFT:
 			if( lives == 0 )
@@ -127,10 +139,32 @@ void scroller()
 			{
 				lcdscroll = INCORRECT; 
 			}
-			else if ( inputTemp == 0  || ( powerUPActivation == '#' && GetBit(PORTA, 2) )) 
+			else if ( ( GetBit(PINA, 4) && GetBit(PORTA, 2) ) )
+			{
+				pUP = 0;
+				powerUpCounter++;
+				tmpB = 0xFF;
+				powerUPActivation = 0;
+				tmpA = SetBit(tmpA, 2, 0);
+				PINA = SetBit(PINA, 4, 0);
+				finalscore += 5;
+				levelOfDifficulty++;
+				if( levelOfDifficulty == 7 )
+				{
+					difficulty2++;
+				}
+				else if ( levelOfDifficulty == 10 )
+				{
+					difficulty1++;
+					levelOfDifficulty = 0;
+				}
+				lcdscroll = CORRECT;
+			}
+			else if ( inputTemp == 0 )  
 			{  
 				pUP = 0; 
 				powerUpCounter++;
+				tmpB = tmpB << 1; 
 				finalscore += 5;
 				levelOfDifficulty++; 
 				if( levelOfDifficulty == 7 ) 
@@ -186,6 +220,7 @@ void scroller()
 		case INCORRECT: 
 			lives--;
 			tmpA = tmpA & 0xF0 | lives;
+			tmpB = 0xFF;
 			left = rand() % difficulty2;
 			right = rand() % difficulty2;
 			operator = rand() % difficulty1; 
@@ -236,7 +271,7 @@ void scroller()
 			strcat( LCD_string_g, "  =                                                  ");
 			break; 
 		case CORRECT: 
-			if( powerUpCounter == 5 ) 
+			if( powerUpCounter == 7 ) 
 			{
 				powerUpCounter = 0; 
 				pUP = 1; 
@@ -300,6 +335,7 @@ void scroller()
 			break;
 	}
 	PORTA = tmpA; 
+	PORTB = tmpB; 
 }
 
 enum States { UNHOLD, CAPTURE, HOLD } state; 
@@ -601,6 +637,7 @@ void mainMenu()
 		case Menu:
 			LCD_go_g = 1;
 			strcpy( LCD_string_g, "Welcome! Press * ....Ready Begin                       " );
+			//mel  1;
 			break;
 		case INSTRUCTIONS:
 			break;
@@ -620,11 +657,11 @@ int main(void)
 	//strcpy( LCD_string_g,  "               2 + 2 =                                           " );
 	//strcpy( LCD_string_g, equations[1].e ) ; 
 	//LCD_write_str = 0;
-	DDRB = 0xFF; // Set port B to output
+	DDRB = 0xFF; PORTB = 0xFF;// Set port B to output
 	DDRC = 0xFF; // Set port D to output
 	DDRA = 0xE7; PORTA = 0x18;
 	DDRD = 0xF0; PORTD = 0x0F;
-
+	
 	// Period for the tasks
 	unsigned long int SMTick1_calc = 100;
 	unsigned long int SMTick2_calc = 1;
